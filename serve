@@ -1,0 +1,5 @@
+<?php
+
+    echo "Press Ctrl-c to quiet \n";
+
+    exec("php -S localhost:8000 -t public");

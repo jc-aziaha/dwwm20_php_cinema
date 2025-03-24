@@ -38,4 +38,4 @@
         <!-- My stylesheet -->
         <link rel="stylesheet" href="/assets/styles/app.css">
     </head>
-    <body>
+    <body class="bg-light">
