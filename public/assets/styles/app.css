@@ -18,3 +18,7 @@ nav a {
     font-weight: 400;
     font-style: normal;
 }
+
+.card {
+    border-radius: 30px;
+}
