@@ -3,6 +3,7 @@ session_start();
 
     require __DIR__ . "/../functions/security.php";
     require __DIR__ . "/../functions/helper.php";
+    require __DIR__ . "/../functions/dbConnector.php";
 
 
     // Si les données arrivent au serveur via la méthode POST
@@ -110,19 +111,31 @@ session_start();
         // 4- Si le formulaire est invalide
         if ( count($formErrors) > 0 ) 
         {
+
+            // Sauvegardons les messages d'erreurs en session
+            $_SESSION['formErrors'] = $formErrors;
+
+            // Sauvegardons les anciennes données provenant du formulaire en session
+            $_SESSION['old'] = $_POST;
+
             // Effectuer une redirection vers la page de laquelle proviennent les données,
             // Puis, arrêter l'exécution du script.
             return header("Location: create.php");
         }
 
-        dd("Continuer la partie");
-
         // Dans le cas contraire
         // 5- Arrondir la note à un chiffre après la virgule
+        $reviewRounded = null;
+        if ( isset($_POST['review']) && $_POST['review'] !== "" ) 
+        {
+            $reviewRounded = round($_POST['review'], 1);
+        }
 
         // 6- Etablir une connexion avec la base de données
+        $db = connectToDb();
 
         // 7- Effectuer la requête d'insertion du nouveau film dans la table 'film'
+        dd('Continuer la partie');
 
         // 8- Générer un message flash de succès
         
@@ -149,22 +162,34 @@ session_start();
         <div class="container">
             <div class="row">
                 <div class="col-md-6 col-lg-5 mx-auto bg-white p-4 rounded shadow">
+
+                    <?php if( isset($_SESSION['formErrors']) && !empty($_SESSION['formErrors']) ) : ?>
+                        <div class="alert alert-danger" role="alert">
+                            <ul>
+                                <?php foreach($_SESSION['formErrors'] as $error) : ?>
+                                    <li><?= $error ?></li>
+                                <?php endforeach ?>
+                            </ul>
+                        </div>
+                        <?php unset($_SESSION['formErrors']); ?>
+                    <?php endif ?>
+
                     <form method="post">
                         <div class="mb-3">
                             <label for="title">Titre du film <span class="text-danger">*</span></label>
-                            <input type="text" name="title" id="title" class="form-control" autofocus>
+                            <input type="text" name="title" id="title" class="form-control" autofocus value="<?= isset($_SESSION['old']) ? old($_SESSION['old'], 'title') : ''; ?>">
                         </div>
                         <div class="mb-3">
                             <label for="actors">Nom du/des acteurs <span class="text-danger">*</span></label>
-                            <input type="text" name="actors" id="actors" class="form-control">
+                            <input type="text" name="actors" id="actors" class="form-control" value="<?= isset($_SESSION['actors']) ? old($_SESSION['old'], 'actors') : ''; ?>">
                         </div>
                         <div class="mb-3">
                             <label for="review">Note / 5</label>
-                            <input type="number" min="0" max="5" step=".1" name="review" id="review" class="form-control">
+                            <input type="number" min="0" max="5" step=".1" name="review" id="review" class="form-control" value="<?= isset($_SESSION['old']) ? old($_SESSION['old'], 'review') : ''; ?>">
                         </div>
                         <div class="mb-3">
                             <label for="comment">Laissez un commentaire</label>
-                            <textarea name="comment" id="comment" class="form-control" rows="4"></textarea>
+                            <textarea name="comment" id="comment" class="form-control" rows="4"><?= isset($_SESSION['old']) ? old($_SESSION['old'], 'comment') : ''; ?></textarea>
                         </div>
                         <div>
                             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
@@ -173,7 +198,7 @@ session_start();
                             <input type="hidden" name="honey_pot" value="">
                         </div>
                         <div>
-                            <input type="submit" class="btn btn-primary shadow">
+                            <input formnovalidate type="submit" class="btn btn-primary shadow">
                         </div>
                     </form>
                 </div>

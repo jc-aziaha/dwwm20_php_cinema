@@ -22,3 +22,23 @@
     {
         var_dump($data);
     }
+
+
+    /**
+     * Affiche l'ancienne valeur provenant du formulaire en fonction de l'input précisé.
+     *
+     * @param array|null $oldData
+     * @param string $input
+     * 
+     * @return string La valeur si elle existe et un chaine de caractère vide dans le cas contraire.
+     */
+    function old(array|null $oldData, string $input): string
+    {
+        if ( isset($oldData[$input]) && !empty($oldData[$input]) ) 
+        {
+            unset($_SESSION['old'][$input]);
+            return $oldData[$input];
+        }
+
+        return '';
+    }
