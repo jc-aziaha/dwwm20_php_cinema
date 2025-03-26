@@ -1,15 +1,49 @@
 <?php
 session_start();
 
-    require __DIR__ . "/../functions/security.php";
-    require __DIR__ . "/../functions/helper.php";
-    require __DIR__ . "/../functions/dbConnector.php";
+require __DIR__ . "/../functions/security.php"; // Chargement des fonctions liée à la sécurité
+require __DIR__ . "/../functions/helper.php"; // Chargement des fonctions aide
+require __DIR__ . "/../functions/dbConnector.php"; // Connexion à la base de données
 
-
-    // Si les données arrivent au serveur via la méthode POST
-    if ( "POST" === $_SERVER['REQUEST_METHOD'] ) 
+    // Si l'identifiant du film à modifier n'existe pas ou qu'elle n'a pas de valeur,
+    if ( !isset($_GET['filmId']) || empty($_GET['filmId']) ) 
     {
+        // Rediriger l'utilisateur vers la page d'accueil.
+        // Puis, arrêter l'exécution du script
+        // dd('testons');
+        return header("Location: index.php");
+    }
 
+    
+    // Dans le cas contraire,
+    
+    // Protéger le serveur contre les failles de type XSS.
+    $filmId = (int) htmlspecialchars($_GET['filmId']);
+    
+    
+    // Récupérer le film depuis la base de données.
+    $db = connectToDb();
+    
+    $request = $db->prepare("SELECT * FROM film WHERE id=:id");
+    $request->bindValue(":id", $filmId);
+    $request->execute();
+
+    // Si le nombre total d'enregistrement est different de 1
+    if ( $request->rowCount() != 1 )
+    {
+        // Rediriger l'utilisateur vers la page d'accueil.
+        // Puis, arrêter l'exécution du script
+        return header("Location: index.php");
+    }
+
+    // Dans le cas contraire, récupérons le film à modifier
+    $film = $request->fetch();
+    $request->closeCursor(); // Non obligatoire.
+    
+    // Si les données arrivent au serveur via la méthode POST
+    if ( $_SERVER['REQUEST_METHOD'] === "POST" )
+    {
+        
         /**
          * **************************************************
          * Traitement du formulaire
@@ -21,14 +55,14 @@ session_start();
         {
             // Effectuer une redirection vers la page de laquelle proviennent les données,
             // Puis, arrêter l'exécution du script.
-            return header("Location: create.php");
+            return header("Location: edit.php");
         }
         
         if( ! isCsrfTokenValid($_POST['csrf_token'], $_SESSION['csrf_token']) )
         {
             // Effectuer une redirection vers la page de laquelle proviennent les données,
             // Puis, arrêter l'exécution du script.
-            return header("Location: create.php");
+            return header("Location: edit.php");
         }
 
 
@@ -37,14 +71,14 @@ session_start();
         {
             // Effectuer une redirection vers la page de laquelle proviennent les données,
             // Puis, arrêter l'exécution du script.
-            return header("Location: create.php");
+            return header("Location: edit.php");
         }
         
         if ( isHoneyPotLiked($_POST['honey_pot']) )
         {
             // Effectuer une redirection vers la page de laquelle proviennent les données,
             // Puis, arrêter l'exécution du script.
-            return header("Location: create.php");
+            return header("Location: edit.php");
         }
 
         // dd("Continuer la partie");
@@ -120,7 +154,7 @@ session_start();
 
             // Effectuer une redirection vers la page de laquelle proviennent les données,
             // Puis, arrêter l'exécution du script.
-            return header("Location: create.php");
+            return header("Location: " . $_SERVER['HTTP_REFERER']);
         }
 
         // Dans le cas contraire
@@ -136,49 +170,55 @@ session_start();
         $db = connectToDb();
 
         // 7- Effectuer la requête d'insertion du nouveau film dans la table 'film'
-        $request = $db->prepare("INSERT INTO film (title, actors, review, comment, created_at, updated_at) VALUES (:title, :actors, :review, :comment, now(), now() )");
+        $request = $db->prepare("UPDATE film SET title=:title, actors=:actors, review=:review, comment=:comment, updated_at=now() WHERE id=:id");
 
         $request->bindValue(":title", $_POST['title']);
         $request->bindValue(":actors", $_POST['actors']);
         $request->bindValue(":review", $reviewRounded);
         $request->bindValue(":comment", $_POST['comment']);
+        $request->bindValue(":id", $film['id']);
 
         $request->execute();
         $request->closeCursor(); // Non obligatoire.
 
         // 8- Générer un message flash de succès
-        $_SESSION['success'] = "Le film a été ajouté avec succès.";
+        $_SESSION['success'] = "Le film a été modifié avec succès.";
         
         // 9- Rediriger l'utilisateur vers la page d'accueil
         // Puis arrêter l'exécution du script.
         return header("Location: index.php");
     }
 
-    // Générons le jéton de sécurité (csrf_token)
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(10));
+    // Générons le jéton de sécurité.
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(30));
 ?>
 <?php
-    $title = "Nouveau film";
-    $description = "Ajouter un nouveau film à la liste";
-    $keywords = "nouveau, film";
+    // Définition du titre de cette page
+    $title = "Modification de ce film"; 
+
+    // Définition de la description de la page
+    $description = "Modification des informations de ce film et mise à jour dans la base de données.";
+
+    // Mots clés
+    $keywords="Modification, Mise à jour";
 ?>
-<?php require __DIR__ . "/../partials/head.php"; ?>
+<?php include __DIR__ . "/../partials/head.php"; ?>
 
-    <?php require __DIR__ . "/../partials/nav.php"; ?>
+    <?php include __DIR__ . "/../partials/nav.php"; ?>
 
-    <main class="container-fluid">
-        <h1 class="text-center my-3 display-5">Nouveau film</h1>
+    <!-- Le contenu spécifique à la page -->
+    <main class="container">
+        <h1 class="text-center my-3 display-5">Modifier ce film</h1>
 
-        <!-- Formulaire d'ajout d'un nouveau film -->
         <div class="container">
             <div class="row">
-                <div class="col-md-6 col-lg-5 mx-auto bg-white p-4 rounded shadow">
+                <div class="col-md-9 col-lg-5 mx-auto p-4 shadow bg-white rounded">
 
-                    <?php if( isset($_SESSION['formErrors']) && !empty($_SESSION['formErrors']) ) : ?>
+                    <?php if(isset($_SESSION['formErrors']) && !empty($_SESSION['formErrors'])) : ?>
                         <div class="alert alert-danger" role="alert">
                             <ul>
-                                <?php foreach($_SESSION['formErrors'] as $error) : ?>
-                                    <li><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8'); ?></li>
+                                <?php foreach($_SESSION['formErrors'] as $formError) : ?>
+                                    <li><?= $formError; ?></li>
                                 <?php endforeach ?>
                             </ul>
                         </div>
@@ -187,29 +227,29 @@ session_start();
 
                     <form method="post">
                         <div class="mb-3">
-                            <label for="title">Titre du film <span class="text-danger">*</span></label>
-                            <input type="text" name="title" id="title" class="form-control" autofocus value="<?= isset($_SESSION['old']['title']) && $_SESSION['old']['title'] !== "" ? htmlspecialchars($_SESSION['old']['title'], ENT_QUOTES, 'UTF-8') : ''; unset($_SESSION['old']['title']); ?>">
+                            <label for="title">Le nom du film <span class="text-danger">*</span></label>
+                            <input type="text" name="title" id="title" class="form-control" value="<?= isset($_SESSION['old']['title']) ? htmlspecialchars($_SESSION['old']['title']) : htmlspecialchars($film['title']); unset($_SESSION['old']['title']); ?>">
                         </div>
                         <div class="mb-3">
-                            <label for="actors">Nom du/des acteurs <span class="text-danger">*</span></label>
-                            <input type="text" name="actors" id="actors" class="form-control" value="<?= isset($_SESSION['old']['actors']) && $_SESSION['old']['actors'] !== "" ? htmlspecialchars($_SESSION['old']['actors'], ENT_QUOTES, 'UTF-8') : ''; unset($_SESSION['old']['actors']); ?>">
+                            <label for="actors">Le nom du/des acteurs <span class="text-danger">*</span></label>
+                            <input type="text" name="actors" id="actors" class="form-control" value="<?= isset($_SESSION['old']['actors']) ? htmlspecialchars($_SESSION['old']['actors']) : htmlspecialchars($film['actors']); unset($_SESSION['old']['actors']); ?>">
                         </div>
                         <div class="mb-3">
-                            <label for="review">Note / 5</label>
-                            <input type="number" min="0" max="5" step=".1" name="review" id="review" class="form-control" value="<?= isset($_SESSION['old']['review']) && $_SESSION['old']['review'] !== "" ? htmlspecialchars($_SESSION['old']['review'], ENT_QUOTES, 'UTF-8') : ''; unset($_SESSION['old']['review']); ?>">
+                            <label for="review">La note / 5</label>
+                            <input type="number" min="0" max="5" step=".1" name="review" id="review" class="form-control" value="<?= isset($_SESSION['old']['review']) ? htmlspecialchars($_SESSION['old']['review']) : htmlspecialchars($film['review']?? ""); unset($_SESSION['old']['review']); ?>">
                         </div>
                         <div class="mb-3">
                             <label for="comment">Laissez un commentaire</label>
-                            <textarea name="comment" id="comment" class="form-control" rows="4"><?= isset($_SESSION['old']['comment']) && $_SESSION['old']['comment'] !== "" ? htmlspecialchars($_SESSION['old']['comment'], ENT_QUOTES, 'UTF-8') : ''; unset($_SESSION['old']['comment']); ?></textarea>
+                            <textarea name="comment" id="comment" class="form-control" rows="4"><?= isset($_SESSION['old']['comment']) ? htmlspecialchars($_SESSION['old']['comment']) : htmlspecialchars($film['comment'] ?? ""); unset($_SESSION['old']['comment']); ?></textarea>
                         </div>
-                        <div>
-                            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                        <div class="mb-3 d-none">
+                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']); ?>">
                         </div>
-                        <div>
+                        <div class="mb-3 d-none">
                             <input type="hidden" name="honey_pot" value="">
                         </div>
                         <div>
-                            <input formnovalidate type="submit" class="btn btn-primary shadow">
+                            <input formnovalidate type="submit" class="btn btn-primary" value="Modifier">
                         </div>
                     </form>
                 </div>
@@ -217,6 +257,6 @@ session_start();
         </div>
     </main>
 
-    <?php require __DIR__ . "/../partials/footer.php"; ?>
+    <?php include __DIR__ . "/../partials/footer.php"; ?>
 
-<?php require __DIR__ . "/../partials/scripts_foot.php"; ?>
+<?php include __DIR__ . "/../partials/scripts_foot.php"; ?>
